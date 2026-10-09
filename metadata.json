@@ -1,0 +1,6 @@
+{
+  "name": "Store Portal",
+  "description": "Merchant and store operations portal for delivery platform: order management, live preparation tracking, and catalog CRUD.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
