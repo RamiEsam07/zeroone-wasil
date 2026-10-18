@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         OrderItemEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class StoreDatabase : RoomDatabase() {
@@ -37,6 +37,13 @@ abstract class StoreDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE stores ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE stores ADD COLUMN longitude REAL")
+            }
+        }
+
         @Volatile
         private var INSTANCE: StoreDatabase? = null
 
@@ -47,7 +54,7 @@ abstract class StoreDatabase : RoomDatabase() {
                     StoreDatabase::class.java,
                     "store_operations_portal.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)
