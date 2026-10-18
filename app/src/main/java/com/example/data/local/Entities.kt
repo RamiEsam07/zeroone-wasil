@@ -36,7 +36,9 @@ data class StoreEntity(
     val rating: Double,
     val totalOrdersCount: Int,
     val autoAcceptOrders: Boolean,
-    val soundAlertsEnabled: Boolean
+    val soundAlertsEnabled: Boolean,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 @Entity(
