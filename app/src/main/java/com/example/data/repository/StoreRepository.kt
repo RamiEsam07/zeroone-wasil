@@ -219,6 +219,30 @@ class StoreRepository(
         }
     }
 
+    private fun JSONObject.toProductEntity(
+        storeId: String,
+        categories: List<CategoryEntity>,
+        createdAt: Long = System.currentTimeMillis(),
+    ): ProductEntity {
+        val remoteCategory = optString("category")
+        val category = categories.firstOrNull { it.nameAr == remoteCategory || it.name == remoteCategory }
+        val stock = optInt("stock_quantity", 0)
+        return ProductEntity(
+            id = optString("id"),
+            storeId = storeId,
+            categoryId = category?.id ?: remoteCategory,
+            name = optString("name_en"),
+            nameAr = optString("name_ar"),
+            description = optString("description"),
+            price = optDouble("price"),
+            image = optString("image_url"),
+            isAvailable = optBoolean("is_available") && stock > 0,
+            preparationTimeMinutes = 15,
+            createdAt = createdAt,
+            stockQuantity = stock,
+        )
+    }
+
     private fun JSONObject.toStoreEntity(): StoreEntity = StoreEntity(
         id = optString("id"),
         ownerId = optString("owner_id"),
@@ -431,7 +455,7 @@ class StoreRepository(
             val session = requireSession()
             val categories = database.categoryDao().getCategoriesForStore(storeId).first()
             val category = categories.firstOrNull { it.id == request.categoryId }
-            val categoryName = category?.nameAr?.ifBlank { category.name } ?: request.categoryId
+            val categoryName = category?.let { it.nameAr.ifBlank { it.name } } ?: request.categoryId
             val body = JSONObject()
                 .put("store_id", storeId)
                 .put("name_en", request.name.trim())
@@ -476,7 +500,7 @@ class StoreRepository(
             request.categoryId?.let { categoryId ->
                 val categories = database.categoryDao().getCategoriesForStore(storeId).first()
                 val category = categories.firstOrNull { it.id == categoryId }
-                body.put("category", category?.nameAr?.ifBlank { category.name } ?: categoryId)
+                body.put("category", category?.let { it.nameAr.ifBlank { it.name } } ?: categoryId)
             }
             request.isAvailable?.let { body.put("is_available", it && nextStock > 0) }
             if (body.length() > 0) {
@@ -725,7 +749,8 @@ private fun ProductEntity.toDomain(categoryName: String = ""): Product = Product
     image = image,
     isAvailable = isAvailable,
     preparationTimeMinutes = preparationTimeMinutes,
-    createdAt = createdAt
+    createdAt = createdAt,
+    stockQuantity = stockQuantity
 )
 
 private fun OrderItemEntity.toDomain(): OrderItem = OrderItem(
