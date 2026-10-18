@@ -22,13 +22,15 @@ data class Store(
     val bannerUrl: String = "",
     val status: StoreStatus = StoreStatus.OPEN,
     val openingHours: String = "08:00 AM - 11:00 PM",
-    val minimumOrder: Double = 15.0,
-    val deliveryFee: Double = 3.5,
-    val currency: String = "USD",
+    val minimumOrder: Double = 0.0,
+    val deliveryFee: Double = 0.0,
+    val currency: String = "SDG",
     val rating: Double = 4.8,
     val totalOrdersCount: Int = 1420,
     val autoAcceptOrders: Boolean = false,
-    val soundAlertsEnabled: Boolean = true
+    val soundAlertsEnabled: Boolean = true,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class Category(
