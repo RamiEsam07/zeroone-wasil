@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PriceCheck
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
@@ -314,7 +315,7 @@ fun ProductEditScreen(
 
                     OutlinedTextField(
                         value = stockQuantityText,
-                        onValueChange = { stockQuantityText = it.filter(Char::isDigit) },
+                        onValueChange = { stockQuantityText = it.filter { char -> char.isDigit() } },
                         label = { Text(if (isArabic) "كمية المخزون" else "Stock quantity") },
                         leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = Slate500) },
                         modifier = Modifier.fillMaxWidth().testTag("product_stock_input"),
