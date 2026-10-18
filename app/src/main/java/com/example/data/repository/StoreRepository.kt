@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -423,55 +424,100 @@ class StoreRepository(
         syncRemoteData()
     }
 
-    // Product CRUD operations
+    // Product CRUD: writes are sent to Supabase; local Room is a cache for the current store.
     suspend fun createProduct(request: CreateProductRequest): Result<Product> = withContext(Dispatchers.IO) {
-        val storeId = _currentStoreId.value
-        val productId = "prd_" + UUID.randomUUID().toString().take(8)
-        val entity = ProductEntity(
-            id = productId,
-            storeId = storeId,
-            categoryId = request.categoryId,
-            name = request.name.trim(),
-            nameAr = request.nameAr.trim(),
-            description = request.description.trim(),
-            price = request.price,
-            image = request.image.trim(),
-            isAvailable = request.isAvailable,
-            preparationTimeMinutes = request.preparationTimeMinutes,
-            createdAt = System.currentTimeMillis()
-        )
-        database.productDao().insertProduct(entity)
-        Result.success(entity.toDomain())
+        runCatching {
+            val storeId = _currentStoreId.value
+            val session = requireSession()
+            val categories = database.categoryDao().getCategoriesForStore(storeId).first()
+            val category = categories.firstOrNull { it.id == request.categoryId }
+            val categoryName = category?.nameAr?.ifBlank { category.name } ?: request.categoryId
+            val body = JSONObject()
+                .put("store_id", storeId)
+                .put("name_en", request.name.trim())
+                .put("name_ar", request.nameAr.trim().ifBlank { request.name.trim() })
+                .put("description", request.description.trim())
+                .put("price", request.price)
+                .put("category", categoryName)
+                .put("image_url", request.image.trim())
+                .put("stock_quantity", request.stockQuantity)
+                .put("is_available", request.isAvailable && request.stockQuantity > 0)
+            val response = supabase.rest(
+                "rest/v1/products?select=*",
+                method = "POST",
+                body = body.toString(),
+                accessToken = session.accessToken,
+                prefer = "return=representation",
+            ).getOrThrow()
+            val rows = JSONArray(response)
+            check(rows.length() > 0) { "لم يرجع الخادم المنتج بعد حفظه." }
+            val entity = rows.getJSONObject(0).toProductEntity(storeId, categories)
+            database.productDao().insertProduct(entity)
+            entity.toDomain(categoryName)
+        }
     }
 
     suspend fun updateProduct(productId: String, request: UpdateProductRequest): Result<Unit> = withContext(Dispatchers.IO) {
-        val storeId = _currentStoreId.value
-        val existing = database.productDao().getProductById(productId, storeId)
-            ?: return@withContext Result.failure(IllegalArgumentException("Product not found"))
-
-        val updated = existing.copy(
-            name = request.name ?: existing.name,
-            nameAr = request.nameAr ?: existing.nameAr,
-            description = request.description ?: existing.description,
-            price = request.price ?: existing.price,
-            categoryId = request.categoryId ?: existing.categoryId,
-            image = request.image ?: existing.image,
-            isAvailable = request.isAvailable ?: existing.isAvailable,
-            preparationTimeMinutes = request.preparationTimeMinutes ?: existing.preparationTimeMinutes
-        )
-        database.productDao().updateProduct(updated)
-        Result.success(Unit)
+        runCatching {
+            val storeId = _currentStoreId.value
+            val session = requireSession()
+            val existingRows = rows("rest/v1/products?select=*&id=eq.$productId&store_id=eq.$storeId")
+            check(existingRows.length() > 0) { "المنتج غير موجود أو لا يتبع متجرك." }
+            val existing = existingRows.getJSONObject(0)
+            val currentStock = existing.optInt("stock_quantity", 0)
+            val nextStock = request.stockQuantity ?: currentStock
+            val body = JSONObject()
+            request.name?.let { body.put("name_en", it.trim()) }
+            request.nameAr?.let { body.put("name_ar", it.trim()) }
+            request.description?.let { body.put("description", it.trim()) }
+            request.price?.let { body.put("price", it) }
+            request.image?.let { body.put("image_url", it.trim()) }
+            request.stockQuantity?.let { body.put("stock_quantity", it) }
+            request.categoryId?.let { categoryId ->
+                val categories = database.categoryDao().getCategoriesForStore(storeId).first()
+                val category = categories.firstOrNull { it.id == categoryId }
+                body.put("category", category?.nameAr?.ifBlank { category.name } ?: categoryId)
+            }
+            request.isAvailable?.let { body.put("is_available", it && nextStock > 0) }
+            if (body.length() > 0) {
+                supabase.rest(
+                    "rest/v1/products?id=eq.$productId&store_id=eq.$storeId",
+                    method = "PATCH",
+                    body = body.toString(),
+                    accessToken = session.accessToken,
+                ).getOrThrow()
+            }
+            syncRemoteData()
+        }
     }
 
     suspend fun deleteProduct(productId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val storeId = _currentStoreId.value
-        database.productDao().deleteProduct(productId, storeId)
-        Result.success(Unit)
+        runCatching {
+            val storeId = _currentStoreId.value
+            val session = requireSession()
+            supabase.rest(
+                "rest/v1/products?id=eq.$productId&store_id=eq.$storeId",
+                method = "DELETE",
+                accessToken = session.accessToken,
+            ).getOrThrow()
+            database.productDao().deleteProduct(productId, storeId)
+        }
     }
 
     suspend fun toggleProductAvailability(productId: String, isAvailable: Boolean) = withContext(Dispatchers.IO) {
         val storeId = _currentStoreId.value
-        database.productDao().updateProductAvailability(productId, storeId, isAvailable)
+        val session = requireSession()
+        val rows = rows("rest/v1/products?select=stock_quantity&id=eq.$productId&store_id=eq.$storeId")
+        check(rows.length() > 0) { "المنتج غير موجود." }
+        val stock = rows.getJSONObject(0).optInt("stock_quantity", 0)
+        check(!isAvailable || stock > 0) { "لا يمكن إتاحة منتج دون كمية مخزون أكبر من صفر." }
+        supabase.rest(
+            "rest/v1/products?id=eq.$productId&store_id=eq.$storeId",
+            method = "PATCH",
+            body = JSONObject().put("is_available", isAvailable).toString(),
+            accessToken = session.accessToken,
+        ).getOrThrow()
+        syncRemoteData()
     }
 
     // Category CRUD
