@@ -330,7 +330,7 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         image: String,
         isAvailable: Boolean,
         prepMinutes: Int,
-        stockQuantity: Int
+        stockQuantity: Int = 0
     ) {
         viewModelScope.launch {
             val editId = _editingProductId.value
