@@ -21,6 +21,12 @@ class SupabaseRoleAuthenticator(
     private val sessionStore = SecureSessionStore(appContext)
     private val authRepository = SupabaseAuthRepository(sessionStore)
 
+    init {
+        SupabaseSessionProvider.sessionRefresher = { candidate ->
+            authRepository.ensureValidSession(candidate).getOrThrow()
+        }
+    }
+
     fun isConfigured(): Boolean =
         authRepository.isConfigured() && BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()
 
