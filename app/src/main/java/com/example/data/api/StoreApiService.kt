@@ -16,7 +16,8 @@ data class CreateProductRequest(
     val categoryId: String,
     val image: String = "",
     val isAvailable: Boolean = true,
-    val preparationTimeMinutes: Int = 15
+    val preparationTimeMinutes: Int = 15,
+    val stockQuantity: Int = 0
 )
 
 data class UpdateProductRequest(
@@ -27,7 +28,8 @@ data class UpdateProductRequest(
     val categoryId: String? = null,
     val image: String? = null,
     val isAvailable: Boolean? = null,
-    val preparationTimeMinutes: Int? = null
+    val preparationTimeMinutes: Int? = null,
+    val stockQuantity: Int? = null
 )
 
 data class UpdateOrderStatusRequest(
