@@ -77,6 +77,54 @@ class StoreRepository(
         return JSONArray(supabase.rest(path, accessToken = session.accessToken).getOrThrow())
     }
 
+    suspend fun getActiveStoreCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val categoryRows = rows("rest/v1/categories?select=id,name_en,name_ar,sort_order&is_active=eq.true&order=sort_order.asc")
+            (0 until categoryRows.length()).map { i ->
+                val row = categoryRows.getJSONObject(i)
+                Category(
+                    id = row.optString("id"),
+                    name = row.optString("name_en"),
+                    nameAr = row.optString("name_ar"),
+                    sortOrder = row.optInt("sort_order"),
+                )
+            }
+        }
+    }
+
+    suspend fun createStoreForMerchant(
+        nameAr: String,
+        nameEn: String,
+        categoryId: String,
+        phone: String,
+        address: String,
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val session = requireSession()
+            require(nameAr.isNotBlank() && nameEn.isNotBlank() && categoryId.isNotBlank() &&
+                phone.isNotBlank() && address.isNotBlank()) { "أكمل بيانات المتجر المطلوبة." }
+            val response = supabase.rest(
+                "rest/v1/stores?select=id",
+                method = "POST",
+                body = JSONObject()
+                    .put("owner_id", session.userId)
+                    .put("name_ar", nameAr.trim())
+                    .put("name_en", nameEn.trim())
+                    .put("category_id", categoryId)
+                    .put("phone", phone.trim())
+                    .put("address_text", address.trim())
+                    .put("description", "")
+                    .put("is_open", false)
+                    .toString(),
+                accessToken = session.accessToken,
+                prefer = "return=representation",
+            ).getOrThrow()
+            val created = JSONArray(response)
+            check(created.length() > 0) { "لم يرجع الخادم المتجر بعد إنشائه." }
+            created.getJSONObject(0).getString("id")
+        }
+    }
+
     suspend fun loginWithSupabaseUser(userId: String, email: String): Result<User> =
         withContext(Dispatchers.IO) {
             runCatching {
