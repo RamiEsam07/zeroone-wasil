@@ -114,7 +114,6 @@ class StoreRepository(
                     .put("phone", phone.trim())
                     .put("address_text", address.trim())
                     .put("description", "")
-                    .put("is_open", false)
                     .toString(),
                 accessToken = session.accessToken,
                 prefer = "return=representation",
