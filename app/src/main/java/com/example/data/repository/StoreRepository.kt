@@ -291,13 +291,15 @@ class StoreRepository(
         bannerUrl = optString("image_url"),
         status = if (optBoolean("is_active", false) && optBoolean("is_open", false)) "OPEN" else "CLOSED",
         openingHours = "حسب ساعات عمل المتجر",
-        minimumOrder = 0.0,
+        minimumOrder = optDouble("min_order_amount", 0.0),
         deliveryFee = optDouble("delivery_fee", 0.0),
         currency = "SDG",
         rating = 0.0,
         totalOrdersCount = 0,
         autoAcceptOrders = false,
         soundAlertsEnabled = true,
+        latitude = if (isNull("latitude")) null else optDouble("latitude"),
+        longitude = if (isNull("longitude")) null else optDouble("longitude"),
     )
 
     private fun String.toMerchantOrderStatus(reason: String = ""): String = when (this) {
@@ -476,6 +478,10 @@ class StoreRepository(
                 .put("phone", store.phone)
                 .put("address_text", store.address)
                 .put("image_url", store.logoUrl)
+                .put("delivery_fee", store.deliveryFee)
+                .put("min_order_amount", store.minimumOrder)
+                .put("latitude", store.latitude ?: JSONObject.NULL)
+                .put("longitude", store.longitude ?: JSONObject.NULL)
                 .put("is_open", store.status == StoreStatus.OPEN)
                 .toString(),
             accessToken = session.accessToken,
@@ -739,7 +745,9 @@ private fun StoreEntity.toDomain(): Store = Store(
     rating = rating,
     totalOrdersCount = totalOrdersCount,
     autoAcceptOrders = autoAcceptOrders,
-    soundAlertsEnabled = soundAlertsEnabled
+    soundAlertsEnabled = soundAlertsEnabled,
+    latitude = latitude,
+    longitude = longitude
 )
 
 private fun Store.toEntity(): StoreEntity = StoreEntity(
@@ -761,7 +769,9 @@ private fun Store.toEntity(): StoreEntity = StoreEntity(
     rating = rating,
     totalOrdersCount = totalOrdersCount,
     autoAcceptOrders = autoAcceptOrders,
-    soundAlertsEnabled = soundAlertsEnabled
+    soundAlertsEnabled = soundAlertsEnabled,
+    latitude = latitude,
+    longitude = longitude
 )
 
 private fun CategoryEntity.toDomain(): Category = Category(
