@@ -236,7 +236,7 @@ class StoreRepository(
             description = optString("description"),
             price = optDouble("price"),
             image = optString("image_url"),
-            isAvailable = optBoolean("is_available") && stock > 0,
+            isAvailable = optBoolean("is_active", true) && optBoolean("is_available") && stock > 0,
             preparationTimeMinutes = 15,
             createdAt = createdAt,
             stockQuantity = stock,
