@@ -1,6 +1,7 @@
 package com.example.data.local
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -65,7 +66,8 @@ data class ProductEntity(
     val image: String,
     val isAvailable: Boolean,
     val preparationTimeMinutes: Int,
-    val createdAt: Long
+    val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val stockQuantity: Int = 0
 )
 
 @Entity(
