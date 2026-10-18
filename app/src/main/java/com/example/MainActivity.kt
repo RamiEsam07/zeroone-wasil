@@ -89,6 +89,8 @@ private fun SupabaseMerchantAuthGate(
     var storeNameEn by remember { mutableStateOf("") }
     var storePhone by remember { mutableStateOf("") }
     var storeAddress by remember { mutableStateOf("") }
+    var storeLatitude by remember { mutableStateOf("") }
+    var storeLongitude by remember { mutableStateOf("") }
     var categories by remember { mutableStateOf<List<Category>>(emptyList()) }
     var selectedCategoryId by remember { mutableStateOf("") }
     var categoryExpanded by remember { mutableStateOf(false) }
@@ -191,17 +193,52 @@ private fun SupabaseMerchantAuthGate(
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = storeAddress, onValueChange = { storeAddress = it },
                 label = { Text("عنوان المتجر") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = storeLatitude,
+                onValueChange = { storeLatitude = it },
+                label = { Text("خط العرض (اختياري)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = storeLongitude,
+                onValueChange = { storeLongitude = it },
+                label = { Text("خط الطول (اختياري)") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+            )
+            Text("أدخل الإحداثيين معاً لتفعيل الإسناد التلقائي حسب القرب.", style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(16.dp))
             Button(
                 enabled = !loading && categories.isNotEmpty() && storeNameAr.isNotBlank() &&
                     storeNameEn.isNotBlank() && selectedCategoryId.isNotBlank() &&
                     storePhone.isNotBlank() && storeAddress.isNotBlank(),
                 onClick = {
+                    val latitudeRaw = storeLatitude.trim()
+                    val longitudeRaw = storeLongitude.trim()
+                    val latitude = latitudeRaw.toDoubleOrNull()
+                    val longitude = longitudeRaw.toDoubleOrNull()
+                    if (latitudeRaw.isBlank() != longitudeRaw.isBlank()) {
+                        errorMessage = "أدخل خط العرض والطول معاً، أو اتركهما فارغين."
+                        return@Button
+                    }
+                    if (latitudeRaw.isNotBlank() &&
+                        (latitude == null || longitude == null ||
+                            latitude !in -90.0..90.0 || longitude !in -180.0..180.0)
+                    ) {
+                        errorMessage = "الإحداثيات غير صحيحة."
+                        return@Button
+                    }
                     scope.launch {
                         loading = true
                         errorMessage = null
                         val created = viewModel.createStoreForMerchant(
-                            storeNameAr, storeNameEn, selectedCategoryId, storePhone, storeAddress
+                            storeNameAr, storeNameEn, selectedCategoryId, storePhone, storeAddress,
+                            latitude, longitude
                         )
                         if (created.isSuccess) {
                             ready = true
