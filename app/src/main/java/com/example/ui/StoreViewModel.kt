@@ -329,7 +329,8 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         categoryId: String,
         image: String,
         isAvailable: Boolean,
-        prepMinutes: Int
+        prepMinutes: Int,
+        stockQuantity: Int
     ) {
         viewModelScope.launch {
             val editId = _editingProductId.value
@@ -342,7 +343,8 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
                     categoryId = categoryId,
                     image = image,
                     isAvailable = isAvailable,
-                    preparationTimeMinutes = prepMinutes
+                    preparationTimeMinutes = prepMinutes,
+                    stockQuantity = stockQuantity
                 )
                 repository.createProduct(req).onSuccess {
                     showMessage(if (_isArabic.value) "تمت إضافة المنتج بنجاح" else "Product created successfully")
