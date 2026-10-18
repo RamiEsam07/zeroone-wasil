@@ -99,6 +99,8 @@ class StoreRepository(
         categoryId: String,
         phone: String,
         address: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val session = requireSession()
@@ -114,6 +116,8 @@ class StoreRepository(
                     .put("category_id", categoryId)
                     .put("phone", phone.trim())
                     .put("address_text", address.trim())
+                    .put("latitude", latitude ?: JSONObject.NULL)
+                    .put("longitude", longitude ?: JSONObject.NULL)
                     .put("description", "")
                     .toString(),
                 accessToken = session.accessToken,
