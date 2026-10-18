@@ -178,7 +178,7 @@ class StoreRepository(
                 customerName = row.optString("customer_name_snapshot").ifBlank { "عميل وصّل" },
                 customerPhone = row.optString("customer_phone_snapshot"),
                 deliveryAddress = row.optString("delivery_address_snapshot"),
-                status = row.optString("status").toMerchantOrderStatus(),
+                status = row.optString("status").toMerchantOrderStatus(row.optString("cancellation_reason")),
                 subtotal = row.optDouble("subtotal"),
                 deliveryFee = row.optDouble("delivery_fee"),
                 tax = row.optDouble("service_fee"),
@@ -265,12 +265,12 @@ class StoreRepository(
         soundAlertsEnabled = true,
     )
 
-    private fun String.toMerchantOrderStatus(): String = when (this) {
+    private fun String.toMerchantOrderStatus(reason: String = ""): String = when (this) {
         "confirmed" -> "ACCEPTED"
         "preparing" -> "PREPARING"
         "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way" -> "READY"
         "delivered" -> "COMPLETED"
-        "cancelled" -> "CANCELLED"
+        "cancelled" -> if (reason.contains("رفض")) "REJECTED" else "CANCELLED"
         else -> "PENDING"
     }
 
