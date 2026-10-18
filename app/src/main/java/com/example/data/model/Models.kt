@@ -51,7 +51,8 @@ data class Product(
     val image: String = "",
     val isAvailable: Boolean = true,
     val preparationTimeMinutes: Int = 15,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val stockQuantity: Int = 0
 )
 
 data class OrderItem(
