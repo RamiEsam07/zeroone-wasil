@@ -102,7 +102,8 @@ data class NavItem(
 @Composable
 fun StorePortalApp(
     viewModel: StoreViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showSimulationControls: Boolean = true,
 ) {
     val currentScreen by viewModel.currentScreen.collectAsState()
     val isArabic by viewModel.isArabic.collectAsState()
@@ -198,16 +199,18 @@ fun StorePortalApp(
 
                             Spacer(modifier = Modifier.width(6.dp))
 
-                            // Test order simulate button
-                            IconButton(
-                                onClick = { viewModel.simulateIncomingOrder() },
-                                modifier = Modifier.testTag("appbar_simulate_btn")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AddAlert,
-                                    contentDescription = "Simulate Order",
-                                    tint = MerchantBlue
-                                )
+                            if (showSimulationControls) {
+                                // Demo-only test order button; disabled in the live merchant portal.
+                                IconButton(
+                                    onClick = { viewModel.simulateIncomingOrder() },
+                                    modifier = Modifier.testTag("appbar_simulate_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AddAlert,
+                                        contentDescription = "Simulate Order",
+                                        tint = MerchantBlue
+                                    )
+                                }
                             }
 
                             // Language switcher
