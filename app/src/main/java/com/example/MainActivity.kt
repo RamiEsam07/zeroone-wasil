@@ -34,6 +34,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.ui.Modifier
 import com.example.ui.StorePortalApp
+import com.example.ui.StoreNavScreen
 import com.example.ui.StoreViewModel
 import com.example.ui.theme.MyApplicationTheme
 
@@ -49,7 +50,8 @@ class MainActivity : ComponentActivity() {
                 SupabaseMerchantAuthGate(viewModel = viewModel) {
                     StorePortalApp(
                         viewModel = viewModel,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        showSimulationControls = false,
                     )
                 }
             }
