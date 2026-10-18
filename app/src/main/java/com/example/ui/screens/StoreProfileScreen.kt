@@ -79,7 +79,7 @@ fun StoreProfileScreen(
     var longitudeText by remember { mutableStateOf("") }
     var locationError by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(store) {
+    LaunchedEffect(store?.id) {
         if (store != null) {
             name = store!!.name
             nameAr = store!!.nameAr
