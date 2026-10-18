@@ -219,10 +219,12 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         categoryId: String,
         phone: String,
         address: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
     ): Result<User> {
         val session = SupabaseSessionProvider.session
             ?: return Result.failure(IllegalStateException("سجّل الدخول أولاً."))
-        val created = repository.createStoreForMerchant(nameAr, nameEn, categoryId, phone, address)
+        val created = repository.createStoreForMerchant(nameAr, nameEn, categoryId, phone, address, latitude, longitude)
         if (created.isFailure) return Result.failure(created.exceptionOrNull() ?: IllegalStateException("تعذر إنشاء المتجر."))
         return loginWithSupabase(session.userId, session.email.orEmpty())
     }
