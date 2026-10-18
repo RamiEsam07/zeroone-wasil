@@ -13,6 +13,7 @@ import com.example.data.model.Store
 import com.example.data.model.StoreStatus
 import com.example.data.model.User
 import com.example.data.repository.StoreRepository
+import com.example.data.supabase.SupabaseSessionProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -208,6 +209,22 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
             showMessage(error.message ?: "تعذر تحميل المتجر.")
         }
         return result
+    }
+
+    suspend fun loadStoreCategories(): Result<List<Category>> = repository.getActiveStoreCategories()
+
+    suspend fun createStoreForMerchant(
+        nameAr: String,
+        nameEn: String,
+        categoryId: String,
+        phone: String,
+        address: String,
+    ): Result<User> {
+        val session = SupabaseSessionProvider.session
+            ?: return Result.failure(IllegalStateException("سجّل الدخول أولاً."))
+        val created = repository.createStoreForMerchant(nameAr, nameEn, categoryId, phone, address)
+        if (created.isFailure) return Result.failure(created.exceptionOrNull() ?: IllegalStateException("تعذر إنشاء المتجر."))
+        return loginWithSupabase(session.userId, session.email.orEmpty())
     }
 
     fun refreshRemoteData() {
