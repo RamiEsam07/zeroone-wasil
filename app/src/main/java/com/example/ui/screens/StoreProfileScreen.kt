@@ -75,6 +75,9 @@ fun StoreProfileScreen(
     var openingHours by remember { mutableStateOf("") }
     var minOrderText by remember { mutableStateOf("") }
     var deliveryFeeText by remember { mutableStateOf("") }
+    var latitudeText by remember { mutableStateOf("") }
+    var longitudeText by remember { mutableStateOf("") }
+    var locationError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(store) {
         if (store != null) {
@@ -87,6 +90,9 @@ fun StoreProfileScreen(
             openingHours = store!!.openingHours
             minOrderText = store!!.minimumOrder.toString()
             deliveryFeeText = store!!.deliveryFee.toString()
+            latitudeText = store!!.latitude?.toString().orEmpty()
+            longitudeText = store!!.longitude?.toString().orEmpty()
+            locationError = null
         }
     }
 
@@ -271,6 +277,38 @@ fun StoreProfileScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = latitudeText,
+                            onValueChange = { latitudeText = it; locationError = null },
+                            label = { Text(if (isArabic) "خط العرض (Latitude)" else "Latitude") },
+                            modifier = Modifier.weight(1f).testTag("profile_latitude_input"),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = longitudeText,
+                            onValueChange = { longitudeText = it; locationError = null },
+                            label = { Text(if (isArabic) "خط الطول (Longitude)" else "Longitude") },
+                            modifier = Modifier.weight(1f).testTag("profile_longitude_input"),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true
+                        )
+                    }
+                    Text(
+                        text = if (isArabic) "الإحداثيات مطلوبة للإسناد التلقائي حسب القرب." else "Coordinates are required for nearest-driver auto-assignment.",
+                        fontSize = 12.sp,
+                        color = Slate500
+                    )
+                    locationError?.let { error ->
+                        Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = openingHours,
                         onValueChange = { openingHours = it },
@@ -289,7 +327,7 @@ fun StoreProfileScreen(
                         OutlinedTextField(
                             value = minOrderText,
                             onValueChange = { minOrderText = it },
-                            label = { Text(if (isArabic) "الحد الأدنى للطلب ($)" else "Min Order ($)") },
+                            label = { Text(if (isArabic) "الحد الأدنى للطلب (ج.س)" else "Min Order (SDG)") },
                             modifier = Modifier.weight(1f).testTag("profile_min_order_input"),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true
@@ -298,7 +336,7 @@ fun StoreProfileScreen(
                         OutlinedTextField(
                             value = deliveryFeeText,
                             onValueChange = { deliveryFeeText = it },
-                            label = { Text(if (isArabic) "رسوم التوصيل ($)" else "Delivery Fee ($)") },
+                            label = { Text(if (isArabic) "رسوم التوصيل (ج.س)" else "Delivery Fee (SDG)") },
                             modifier = Modifier.weight(1f).testTag("profile_fee_input"),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true
@@ -319,8 +357,28 @@ fun StoreProfileScreen(
                 Button(
                     onClick = {
                         if (store != null) {
+                            val latitudeRaw = latitudeText.trim()
+                            val longitudeRaw = longitudeText.trim()
+                            val latitude = latitudeRaw.toDoubleOrNull()
+                            val longitude = longitudeRaw.toDoubleOrNull()
+                            if (latitudeRaw.isBlank() != longitudeRaw.isBlank()) {
+                                locationError = if (isArabic) "أدخل خط العرض والطول معاً، أو اتركهما فارغين." else "Enter both coordinates or leave both blank."
+                                return@Button
+                            }
+                            if (latitudeRaw.isNotBlank() &&
+                                (latitude == null || longitude == null ||
+                                    latitude !in -90.0..90.0 || longitude !in -180.0..180.0)
+                            ) {
+                                locationError = if (isArabic) "الإحداثيات غير صحيحة." else "Coordinates are invalid."
+                                return@Button
+                            }
+                            locationError = null
                             val minOrder = minOrderText.toDoubleOrNull() ?: store!!.minimumOrder
                             val deliveryFee = deliveryFeeText.toDoubleOrNull() ?: store!!.deliveryFee
+                            if (minOrder < 0 || deliveryFee < 0) {
+                                locationError = if (isArabic) "لا يمكن أن تكون الرسوم أو قيمة الحد الأدنى سالبة." else "Fees and minimum order must be non-negative."
+                                return@Button
+                            }
                             val updated = store!!.copy(
                                 name = name,
                                 nameAr = nameAr,
@@ -330,7 +388,9 @@ fun StoreProfileScreen(
                                 address = address,
                                 openingHours = openingHours,
                                 minimumOrder = minOrder,
-                                deliveryFee = deliveryFee
+                                deliveryFee = deliveryFee,
+                                latitude = latitude,
+                                longitude = longitude
                             )
                             viewModel.updateStoreSettings(updated)
                         }
