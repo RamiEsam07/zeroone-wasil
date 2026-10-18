@@ -199,6 +199,21 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    suspend fun loginWithSupabase(userId: String, email: String): Result<User> {
+        val result = repository.loginWithSupabaseUser(userId, email)
+        result.onSuccess { user ->
+            _currentScreen.value = StoreNavScreen.DASHBOARD
+            showMessage(if (_isArabic.value) "تم تسجيل الدخول إلى المتجر" else "Signed in to store")
+        }.onFailure { error ->
+            showMessage(error.message ?: "تعذر تحميل المتجر.")
+        }
+        return result
+    }
+
+    fun refreshRemoteData() {
+        viewModelScope.launch { repository.refreshRemoteData() }
+    }
+
     fun logout() {
         repository.logout()
         _currentScreen.value = StoreNavScreen.LOGIN
