@@ -102,7 +102,18 @@ class StoreRepository(
                     role = UserRole.STORE_OWNER,
                     storeId = storeId,
                 )
-                database.userDao().insertUsers(listOf(user.toEntity()))
+                database.userDao().insertUsers(
+                    listOf(
+                        UserEntity(
+                            id = user.id,
+                            name = user.name,
+                            email = user.email,
+                            phone = user.phone,
+                            role = user.role.name,
+                            storeId = user.storeId,
+                        )
+                    )
+                )
                 database.storeDao().insertStores(listOf(remoteStore.toStoreEntity()))
                 _currentUser.value = user
                 _currentStoreId.value = storeId
@@ -218,7 +229,7 @@ class StoreRepository(
         address = optString("address_text"),
         logoUrl = optString("image_url"),
         bannerUrl = optString("image_url"),
-        status = if (optBoolean("is_open", false)) "OPEN" else "CLOSED",
+        status = if (optBoolean("is_active", false) && optBoolean("is_open", false)) "OPEN" else "CLOSED",
         openingHours = "حسب ساعات عمل المتجر",
         minimumOrder = 0.0,
         deliveryFee = 0.0,
