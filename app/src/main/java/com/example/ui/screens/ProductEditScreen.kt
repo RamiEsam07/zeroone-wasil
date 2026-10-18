@@ -88,6 +88,7 @@ fun ProductEditScreen(
     var image by remember { mutableStateOf("") }
     var isAvailable by remember { mutableStateOf(true) }
     var prepMinutesText by remember { mutableStateOf("15") }
+    var stockQuantityText by remember { mutableStateOf("0") }
 
     var categoryDropdownExpanded by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -102,6 +103,7 @@ fun ProductEditScreen(
             image = existingProduct.image
             isAvailable = existingProduct.isAvailable
             prepMinutesText = existingProduct.preparationTimeMinutes.toString()
+            stockQuantityText = existingProduct.stockQuantity.toString()
         } else if (categories.isNotEmpty() && selectedCategoryId.isEmpty()) {
             selectedCategoryId = categories.first().id
         }
@@ -308,6 +310,18 @@ fun ProductEditScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = stockQuantityText,
+                        onValueChange = { stockQuantityText = it.filter(Char::isDigit) },
+                        label = { Text(if (isArabic) "كمية المخزون" else "Stock quantity") },
+                        leadingIcon = { Icon(Icons.Default.Inventory2, contentDescription = null, tint = Slate500) },
+                        modifier = Modifier.fillMaxWidth().testTag("product_stock_input"),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Availability Switch
@@ -391,6 +405,7 @@ fun ProductEditScreen(
                     onClick = {
                         val parsedPrice = priceText.toDoubleOrNull()
                         val parsedPrep = prepMinutesText.toIntOrNull() ?: 15
+                        val parsedStock = stockQuantityText.toIntOrNull()
 
                         if (name.isBlank()) {
                             validationError = if (isArabic) "يرجى كتابة اسم المنتج" else "Please enter product name"
@@ -398,6 +413,10 @@ fun ProductEditScreen(
                         }
                         if (parsedPrice == null || parsedPrice <= 0.0) {
                             validationError = if (isArabic) "يرجى إدخال سعر صحيح أكبر من صفر" else "Please enter a valid price"
+                            return@Button
+                        }
+                        if (parsedStock == null || parsedStock < 0 || (isAvailable && parsedStock == 0)) {
+                            validationError = if (isArabic) "أدخل كمية مخزون أكبر من صفر للصنف المتاح" else "Enter stock greater than zero for an available product"
                             return@Button
                         }
                         if (selectedCategoryId.isBlank() && categories.isNotEmpty()) {
@@ -413,7 +432,8 @@ fun ProductEditScreen(
                             categoryId = selectedCategoryId,
                             image = image,
                             isAvailable = isAvailable,
-                            prepMinutes = parsedPrep
+                            prepMinutes = parsedPrep,
+                            stockQuantity = parsedStock
                         )
                     },
                     modifier = Modifier.weight(1.5f).height(48.dp).testTag("product_save_btn"),
