@@ -84,6 +84,7 @@ class StoreRepository(
                 val row = categoryRows.getJSONObject(i)
                 Category(
                     id = row.optString("id"),
+                    storeId = "",
                     name = row.optString("name_en"),
                     nameAr = row.optString("name_ar"),
                     sortOrder = row.optInt("sort_order"),
@@ -197,20 +198,7 @@ class StoreRepository(
 
         val productRows = rows("rest/v1/products?select=*&store_id=eq.$storeId&order=created_at.desc")
         val productEntities = (0 until productRows.length()).map { i ->
-            val row = productRows.getJSONObject(i)
-            ProductEntity(
-                id = row.optString("id"),
-                storeId = storeId,
-                categoryId = row.optString("category"),
-                name = row.optString("name_en"),
-                nameAr = row.optString("name_ar"),
-                description = row.optString("description"),
-                price = row.optDouble("price"),
-                image = row.optString("image_url"),
-                isAvailable = row.optBoolean("is_available") && row.optInt("stock_quantity") > 0,
-                preparationTimeMinutes = 15,
-                createdAt = System.currentTimeMillis() - i,
-            )
+            productRows.getJSONObject(i).toProductEntity(storeId, categoryEntities, System.currentTimeMillis() - i)
         }
         if (productEntities.isNotEmpty()) database.productDao().insertProducts(productEntities)
 
@@ -228,7 +216,7 @@ class StoreRepository(
                 status = row.optString("status").toMerchantOrderStatus(row.optString("cancellation_reason")),
                 subtotal = row.optDouble("subtotal"),
                 deliveryFee = row.optDouble("delivery_fee"),
-                tax = row.optDouble("service_fee"),
+                tax = row.optDouble("service_fee") + row.optDouble("tax_amount"),
                 total = row.optDouble("total"),
                 notes = row.optString("customer_notes"),
                 paymentMethod = "CASH_ON_DELIVERY",
@@ -304,7 +292,7 @@ class StoreRepository(
         status = if (optBoolean("is_active", false) && optBoolean("is_open", false)) "OPEN" else "CLOSED",
         openingHours = "حسب ساعات عمل المتجر",
         minimumOrder = 0.0,
-        deliveryFee = 0.0,
+        deliveryFee = optDouble("delivery_fee", 0.0),
         currency = "SDG",
         rating = 0.0,
         totalOrdersCount = 0,
@@ -488,7 +476,7 @@ class StoreRepository(
                 .put("phone", store.phone)
                 .put("address_text", store.address)
                 .put("image_url", store.logoUrl)
-                .put("is_open", store.status == "OPEN")
+                .put("is_open", store.status == StoreStatus.OPEN)
                 .toString(),
             accessToken = session.accessToken,
         ).getOrThrow()
