@@ -337,33 +337,90 @@ class StoreRepository(
 
     // Status transition enforcement
     suspend fun updateOrderStatus(orderId: String, newStatus: OrderStatus): Result<Unit> = withContext(Dispatchers.IO) {
-        val storeId = _currentStoreId.value
-        val order = database.orderDao().getOrderById(orderId, storeId)
-            ?: return@withContext Result.failure(IllegalArgumentException("Order not found or unauthorized for this store"))
+        runCatching {
+            val storeId = _currentStoreId.value
+            val order = database.orderDao().getOrderById(orderId, storeId)
+                ?: throw IllegalArgumentException("Order not found or unauthorized for this store")
+            val currentStatus = runCatching { OrderStatus.valueOf(order.status) }.getOrDefault(OrderStatus.PENDING)
+            check(currentStatus.canTransitionTo(newStatus)) {
+                "Invalid order transition from $currentStatus to $newStatus"
+            }
 
-        val currentStatus = try {
-            OrderStatus.valueOf(order.status)
-        } catch (e: Exception) {
-            OrderStatus.PENDING
+            val session = requireSession()
+            val response = when (newStatus) {
+                OrderStatus.ACCEPTED -> supabase.rest(
+                    "rest/v1/rpc/wasil_merchant_update_order_status",
+                    method = "POST",
+                    body = JSONObject()
+                        .put("p_order_id", orderId)
+                        .put("p_next_status", "confirmed")
+                        .toString(),
+                    accessToken = session.accessToken,
+                ).getOrThrow().trim()
+                OrderStatus.PREPARING -> supabase.rest(
+                    "rest/v1/rpc/wasil_merchant_update_order_status",
+                    method = "POST",
+                    body = JSONObject()
+                        .put("p_order_id", orderId)
+                        .put("p_next_status", "preparing")
+                        .toString(),
+                    accessToken = session.accessToken,
+                ).getOrThrow().trim()
+                OrderStatus.READY -> supabase.rest(
+                    "rest/v1/rpc/wasil_merchant_update_order_status",
+                    method = "POST",
+                    body = JSONObject()
+                        .put("p_order_id", orderId)
+                        .put("p_next_status", "ready_for_pickup")
+                        .toString(),
+                    accessToken = session.accessToken,
+                ).getOrThrow().trim()
+                OrderStatus.REJECTED, OrderStatus.CANCELLED -> supabase.rest(
+                    "rest/v1/rpc/wasil_cancel_order",
+                    method = "POST",
+                    body = JSONObject()
+                        .put("p_order_id", orderId)
+                        .put("p_reason", if (newStatus == OrderStatus.REJECTED) "رفض الطلب من المتجر" else "إلغاء الطلب من المتجر")
+                        .toString(),
+                    accessToken = session.accessToken,
+                ).getOrThrow().trim()
+                else -> throw IllegalArgumentException("هذه الحالة لا يحدّثها المتجر؛ يتولاها المندوب أو النظام.")
+            }
+            check(response == "true") { "لم يقبل الخادم تحديث حالة الطلب." }
+            syncRemoteData()
         }
-
-        if (!currentStatus.canTransitionTo(newStatus)) {
-            return@withContext Result.failure(
-                IllegalStateException("Invalid order transition from $currentStatus to $newStatus")
-            )
-        }
-
-        database.orderDao().updateOrderStatus(orderId, storeId, newStatus.name)
-        Result.success(Unit)
     }
 
     suspend fun updateStoreStatus(status: StoreStatus) = withContext(Dispatchers.IO) {
         val storeId = _currentStoreId.value
-        database.storeDao().updateStoreStatus(storeId, status.name)
+        val session = requireSession()
+        supabase.rest(
+            "rest/v1/stores?id=eq.$storeId",
+            method = "PATCH",
+            body = JSONObject().put("is_open", status == StoreStatus.OPEN).toString(),
+            accessToken = session.accessToken,
+        ).getOrThrow()
+        syncRemoteData()
     }
 
     suspend fun updateStore(store: Store) = withContext(Dispatchers.IO) {
-        database.storeDao().updateStore(store.toEntity())
+        val storeId = _currentStoreId.value
+        val session = requireSession()
+        supabase.rest(
+            "rest/v1/stores?id=eq.$storeId",
+            method = "PATCH",
+            body = JSONObject()
+                .put("name_en", store.name)
+                .put("name_ar", store.nameAr)
+                .put("description", store.description)
+                .put("phone", store.phone)
+                .put("address_text", store.address)
+                .put("image_url", store.logoUrl)
+                .put("is_open", store.status == "OPEN")
+                .toString(),
+            accessToken = session.accessToken,
+        ).getOrThrow()
+        syncRemoteData()
     }
 
     // Product CRUD operations
