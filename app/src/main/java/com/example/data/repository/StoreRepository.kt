@@ -7,6 +7,10 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import com.example.data.api.CreateProductRequest
 import com.example.data.api.UpdateProductRequest
+import com.example.data.supabase.SupabaseRestClient
+import com.example.data.supabase.SupabaseSessionProvider
+import org.json.JSONArray
+import org.json.JSONObject
 import com.example.data.local.CategoryEntity
 import com.example.data.local.OrderEntity
 import com.example.data.local.OrderItemEntity
@@ -49,23 +53,189 @@ class StoreRepository(
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
 
-    private val _currentStoreId = MutableStateFlow("str_001")
+    private val _currentStoreId = MutableStateFlow("")
     val currentStoreId: StateFlow<String> = _currentStoreId.asStateFlow()
+
+    private val supabase = SupabaseRestClient()
 
     init {
         coroutineScope.launch {
-            // Ensure DB seeded and initial user logged in
-            val user = database.userDao().getUserById("usr_owner_01")
-            if (user == null) {
+            // Seed local demo fixtures for previews only; never auto-authenticate a demo merchant.
+            if (database.userDao().getUserById("usr_owner_01") == null) {
                 database.populateInitialData()
-                val loaded = database.userDao().getUserById("usr_owner_01")
-                _currentUser.value = loaded?.toDomain()
-                _currentStoreId.value = loaded?.storeId ?: "str_001"
-            } else {
-                _currentUser.value = user.toDomain()
-                _currentStoreId.value = user.storeId ?: "str_001"
             }
         }
+    }
+
+    private fun requireSession() =
+        SupabaseSessionProvider.session
+            ?: throw IllegalStateException("سجّل الدخول أولاً.")
+
+    private suspend fun rows(path: String): JSONArray {
+        val session = requireSession()
+        return JSONArray(supabase.rest(path, accessToken = session.accessToken).getOrThrow())
+    }
+
+    suspend fun loginWithSupabaseUser(userId: String, email: String): Result<User> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val session = requireSession()
+                check(session.userId == userId) { "جلسة الحساب غير متطابقة." }
+                val profiles = rows("rest/v1/profiles?select=full_name,phone,role,is_active&id=eq.$userId")
+                check(profiles.length() > 0 && profiles.getJSONObject(0).optBoolean("is_active", false)) {
+                    "حساب التاجر غير مفعّل."
+                }
+                val profile = profiles.getJSONObject(0)
+                check(profile.optString("role") == "merchant") { "هذا التطبيق مخصص لحسابات التجار فقط." }
+
+                val stores = rows("rest/v1/stores?select=*,category:categories(slug)&owner_id=eq.$userId&order=created_at.asc")
+                check(stores.length() > 0) {
+                    "تم تسجيل الدخول، لكن لا يوجد متجر مرتبط بالحساب بعد. يلزم إنشاء المتجر واعتماده أولاً."
+                }
+                val remoteStore = stores.getJSONObject(0)
+                val storeId = remoteStore.getString("id")
+                val user = User(
+                    id = userId,
+                    name = profile.optString("full_name").ifBlank { email.substringBefore("@") },
+                    email = email,
+                    phone = profile.optString("phone"),
+                    role = UserRole.STORE_OWNER,
+                    storeId = storeId,
+                )
+                database.userDao().insertUsers(listOf(user.toEntity()))
+                database.storeDao().insertStores(listOf(remoteStore.toStoreEntity()))
+                _currentUser.value = user
+                _currentStoreId.value = storeId
+                syncRemoteData()
+                user
+            }
+        }
+
+    suspend fun refreshRemoteData() = withContext(Dispatchers.IO) {
+        if (SupabaseSessionProvider.session != null && _currentStoreId.value.isNotBlank()) {
+            syncRemoteData()
+        }
+    }
+
+    private suspend fun syncRemoteData() {
+        val storeId = _currentStoreId.value
+        if (storeId.isBlank()) return
+        val storeRows = rows("rest/v1/stores?select=*,category:categories(slug)&id=eq.$storeId")
+        if (storeRows.length() > 0) database.storeDao().insertStores(listOf(storeRows.getJSONObject(0).toStoreEntity()))
+
+        val categoryRows = rows("rest/v1/categories?select=id,name_ar,name_en,sort_order&order=sort_order.asc")
+        val categoryEntities = (0 until categoryRows.length()).map { i ->
+            val row = categoryRows.getJSONObject(i)
+            CategoryEntity(
+                id = row.optString("id"),
+                storeId = storeId,
+                name = row.optString("name_en"),
+                nameAr = row.optString("name_ar"),
+                sortOrder = row.optInt("sort_order"),
+            )
+        }
+        if (categoryEntities.isNotEmpty()) database.categoryDao().insertCategories(categoryEntities)
+
+        val productRows = rows("rest/v1/products?select=*&store_id=eq.$storeId&order=created_at.desc")
+        val productEntities = (0 until productRows.length()).map { i ->
+            val row = productRows.getJSONObject(i)
+            ProductEntity(
+                id = row.optString("id"),
+                storeId = storeId,
+                categoryId = row.optString("category"),
+                name = row.optString("name_en"),
+                nameAr = row.optString("name_ar"),
+                description = row.optString("description"),
+                price = row.optDouble("price"),
+                image = row.optString("image_url"),
+                isAvailable = row.optBoolean("is_available") && row.optInt("stock_quantity") > 0,
+                preparationTimeMinutes = 15,
+                createdAt = System.currentTimeMillis() - i,
+            )
+        }
+        if (productEntities.isNotEmpty()) database.productDao().insertProducts(productEntities)
+
+        val orderRows = rows("rest/v1/orders?select=*&store_id=eq.$storeId&order=placed_at.desc")
+        val orderEntities = (0 until orderRows.length()).map { i ->
+            val row = orderRows.getJSONObject(i)
+            OrderEntity(
+                id = row.optString("id"),
+                orderNumber = "WAS-" + row.optLong("order_number"),
+                storeId = storeId,
+                customerId = row.optString("customer_id"),
+                customerName = row.optString("customer_name_snapshot").ifBlank { "عميل وصّل" },
+                customerPhone = row.optString("customer_phone_snapshot"),
+                deliveryAddress = row.optString("delivery_address_snapshot"),
+                status = row.optString("status").toMerchantOrderStatus(),
+                subtotal = row.optDouble("subtotal"),
+                deliveryFee = row.optDouble("delivery_fee"),
+                tax = row.optDouble("service_fee"),
+                total = row.optDouble("total"),
+                notes = row.optString("customer_notes"),
+                paymentMethod = "CASH_ON_DELIVERY",
+                paymentStatus = row.optString("payment_status").uppercase(),
+                driverId = row.optString("driver_id").takeIf { it.isNotBlank() && it != "null" },
+                driverName = null,
+                driverPhone = null,
+                createdAt = System.currentTimeMillis() - i,
+                estimatedReadyTimeMinutes = 20,
+            )
+        }
+        if (orderEntities.isNotEmpty()) database.orderDao().insertOrders(orderEntities)
+
+        for (orderRow in orderRows.let { array -> (0 until array.length()).map { array.getJSONObject(it) } }) {
+            val orderId = orderRow.optString("id")
+            val itemRows = rows("rest/v1/order_items?select=*&order_id=eq.$orderId")
+            val items = (0 until itemRows.length()).map { i ->
+                val item = itemRows.getJSONObject(i)
+                val quantity = item.optInt("quantity", 1)
+                val price = item.optDouble("unit_price")
+                OrderItemEntity(
+                    id = item.optString("id"),
+                    orderId = orderId,
+                    productId = item.optString("product_id").takeIf { it != "null" }.orEmpty(),
+                    productName = item.optString("product_name_snapshot"),
+                    productNameAr = item.optString("product_name_snapshot"),
+                    unitPrice = price,
+                    quantity = quantity,
+                    totalPrice = price * quantity,
+                    specialInstructions = item.optString("special_instructions"),
+                    optionsSummary = "",
+                )
+            }
+            if (items.isNotEmpty()) database.orderItemDao().insertOrderItems(items)
+        }
+    }
+
+    private fun JSONObject.toStoreEntity(): StoreEntity = StoreEntity(
+        id = optString("id"),
+        ownerId = optString("owner_id"),
+        name = optString("name_en"),
+        nameAr = optString("name_ar"),
+        description = optString("description"),
+        category = optJSONObject("category")?.optString("slug").orEmpty(),
+        phone = optString("phone"),
+        address = optString("address_text"),
+        logoUrl = optString("image_url"),
+        bannerUrl = optString("image_url"),
+        status = if (optBoolean("is_open", false)) "OPEN" else "CLOSED",
+        openingHours = "حسب ساعات عمل المتجر",
+        minimumOrder = 0.0,
+        deliveryFee = 0.0,
+        currency = "SDG",
+        rating = 0.0,
+        totalOrdersCount = 0,
+        autoAcceptOrders = false,
+        soundAlertsEnabled = true,
+    )
+
+    private fun String.toMerchantOrderStatus(): String = when (this) {
+        "confirmed" -> "ACCEPTED"
+        "preparing" -> "PREPARING"
+        "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way" -> "READY"
+        "delivered" -> "COMPLETED"
+        "cancelled" -> "CANCELLED"
+        else -> "PENDING"
     }
 
     suspend fun getAvailableDemoAccounts(): List<Pair<User, Store>> = withContext(Dispatchers.IO) {
@@ -103,6 +273,7 @@ class StoreRepository(
 
     fun logout() {
         _currentUser.value = null
+        _currentStoreId.value = ""
     }
 
     // Reactive store observation scoped strictly to active store
