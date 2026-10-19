@@ -426,6 +426,17 @@ fun OrderDetailsScreen(
                         }
                     }
 
+                    if (order.platformCommissionAmount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(if (isArabic) "عمولة المنصة على المتجر" else "Platform Commission", fontSize = 13.sp, color = Slate500)
+                            Text("SDG ${String.format(Locale.US, "%.2f", order.platformCommissionAmount)}", fontSize = 13.sp, color = Slate700)
+                        }
+                    }
+
                     if (order.tax > 0) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
