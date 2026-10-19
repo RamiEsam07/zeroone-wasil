@@ -222,6 +222,7 @@ class StoreRepository(
                 deliveryFee = row.optDouble("delivery_fee"),
                 tax = row.optDouble("tax_amount", 0.0),
                 serviceFee = row.optDouble("service_fee", 0.0),
+                platformCommissionAmount = row.optDouble("platform_commission_amount", 0.0),
                 total = row.optDouble("total"),
                 notes = row.optString("customer_notes"),
                 paymentMethod = "CASH_ON_DELIVERY",
