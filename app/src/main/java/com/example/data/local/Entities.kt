@@ -96,7 +96,9 @@ data class OrderEntity(
     val driverName: String?,
     val driverPhone: String?,
     val createdAt: Long,
-    val estimatedReadyTimeMinutes: Int
+    val estimatedReadyTimeMinutes: Int,
+    @ColumnInfo(defaultValue = "0.0") val serviceFee: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0") val platformCommissionAmount: Double = 0.0
 )
 
 @Entity(
