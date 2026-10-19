@@ -13,7 +13,7 @@
 ## Not yet verified
 - End-to-end Google OAuth against the actual Supabase project.
 - Merchant onboarding against live RLS policies, including creating a store and the admin approval/activation path.
-- Build/test result for this audit branch.
+- Initial CI build exposed duplicate `serviceFee` and `platformCommissionAmount` constructor arguments in `StoreRepository.kt`; the duplicate mappings have been removed in commit `fbd36c66ba92c0bc8168cdfc8d19da4947edfd9c`. The confirming build is running; do not treat the fix as verified until the run completes successfully.
 - Cross-app order lifecycle with customer, driver, and admin.
 
 ## Release gates
