@@ -91,7 +91,8 @@ data class Order(
     val driverName: String? = null,
     val driverPhone: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val estimatedReadyTimeMinutes: Int = 20
+    val estimatedReadyTimeMinutes: Int = 20,
+    val serviceFee: Double = 0.0
 ) {
     val totalItemCount: Int
         get() = items.sumOf { it.quantity }
