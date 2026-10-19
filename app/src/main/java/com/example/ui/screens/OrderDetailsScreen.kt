@@ -372,7 +372,7 @@ fun OrderDetailsScreen(
                                         )
                                     }
                                     Text(
-                                        text = "$${String.format(Locale.US, "%.2f", item.unitPrice)} each",
+                                        text = "SDG ${String.format(Locale.US, "%.2f", item.unitPrice)} each",
                                         fontSize = 11.sp,
                                         color = Slate500
                                     )
@@ -380,7 +380,7 @@ fun OrderDetailsScreen(
                             }
 
                             Text(
-                                text = "$${String.format(Locale.US, "%.2f", item.totalPrice)}",
+                                text = "SDG ${String.format(Locale.US, "%.2f", item.totalPrice)}",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = Slate900
@@ -461,7 +461,7 @@ fun OrderDetailsScreen(
                         }
 
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", order.total)}",
+                            text = "SDG ${String.format(Locale.US, "%.2f", order.total)}",
                             fontSize = 19.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MerchantBlue
