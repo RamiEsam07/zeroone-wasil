@@ -85,8 +85,10 @@ data class Order(
     val total: Double,
     val items: List<OrderItem> = emptyList(),
     val notes: String = "",
-    val paymentMethod: PaymentMethod = PaymentMethod.CREDIT_CARD,
-    val paymentStatus: PaymentStatus = PaymentStatus.PAID,
+    // The initial WASIL launch supports cash on delivery only. Never imply that an
+    // electronic provider charged the customer unless a verified payment result exists.
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH_ON_DELIVERY,
+    val paymentStatus: PaymentStatus = PaymentStatus.PENDING_CASH,
     val driverId: String? = null,
     val driverName: String? = null,
     val driverPhone: String? = null,
