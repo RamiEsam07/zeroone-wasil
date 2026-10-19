@@ -22,13 +22,15 @@ data class Store(
     val bannerUrl: String = "",
     val status: StoreStatus = StoreStatus.OPEN,
     val openingHours: String = "08:00 AM - 11:00 PM",
-    val minimumOrder: Double = 15.0,
-    val deliveryFee: Double = 3.5,
-    val currency: String = "USD",
+    val minimumOrder: Double = 0.0,
+    val deliveryFee: Double = 0.0,
+    val currency: String = "SDG",
     val rating: Double = 4.8,
     val totalOrdersCount: Int = 1420,
     val autoAcceptOrders: Boolean = false,
-    val soundAlertsEnabled: Boolean = true
+    val soundAlertsEnabled: Boolean = true,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class Category(
@@ -51,7 +53,8 @@ data class Product(
     val image: String = "",
     val isAvailable: Boolean = true,
     val preparationTimeMinutes: Int = 15,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val stockQuantity: Int = 0
 )
 
 data class OrderItem(
@@ -82,13 +85,17 @@ data class Order(
     val total: Double,
     val items: List<OrderItem> = emptyList(),
     val notes: String = "",
-    val paymentMethod: PaymentMethod = PaymentMethod.CREDIT_CARD,
-    val paymentStatus: PaymentStatus = PaymentStatus.PAID,
+    // The initial WASIL launch supports cash on delivery only. Never imply that an
+    // electronic provider charged the customer unless a verified payment result exists.
+    val paymentMethod: PaymentMethod = PaymentMethod.CASH_ON_DELIVERY,
+    val paymentStatus: PaymentStatus = PaymentStatus.PENDING_CASH,
     val driverId: String? = null,
     val driverName: String? = null,
     val driverPhone: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val estimatedReadyTimeMinutes: Int = 20
+    val estimatedReadyTimeMinutes: Int = 20,
+    val serviceFee: Double = 0.0,
+    val platformCommissionAmount: Double = 0.0
 ) {
     val totalItemCount: Int
         get() = items.sumOf { it.quantity }

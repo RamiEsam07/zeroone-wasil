@@ -13,6 +13,7 @@ import com.example.data.model.Store
 import com.example.data.model.StoreStatus
 import com.example.data.model.User
 import com.example.data.repository.StoreRepository
+import com.example.data.supabase.SupabaseSessionProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -199,6 +200,39 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    suspend fun loginWithSupabase(userId: String, email: String): Result<User> {
+        val result = repository.loginWithSupabaseUser(userId, email)
+        result.onSuccess { user ->
+            _currentScreen.value = StoreNavScreen.DASHBOARD
+            showMessage(if (_isArabic.value) "تم تسجيل الدخول إلى المتجر" else "Signed in to store")
+        }.onFailure { error ->
+            showMessage(error.message ?: "تعذر تحميل المتجر.")
+        }
+        return result
+    }
+
+    suspend fun loadStoreCategories(): Result<List<Category>> = repository.getActiveStoreCategories()
+
+    suspend fun createStoreForMerchant(
+        nameAr: String,
+        nameEn: String,
+        categoryId: String,
+        phone: String,
+        address: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
+    ): Result<User> {
+        val session = SupabaseSessionProvider.session
+            ?: return Result.failure(IllegalStateException("سجّل الدخول أولاً."))
+        val created = repository.createStoreForMerchant(nameAr, nameEn, categoryId, phone, address, latitude, longitude)
+        if (created.isFailure) return Result.failure(created.exceptionOrNull() ?: IllegalStateException("تعذر إنشاء المتجر."))
+        return loginWithSupabase(session.userId, session.email.orEmpty())
+    }
+
+    fun refreshRemoteData() {
+        viewModelScope.launch { repository.refreshRemoteData() }
+    }
+
     fun logout() {
         repository.logout()
         _currentScreen.value = StoreNavScreen.LOGIN
@@ -314,7 +348,8 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
         categoryId: String,
         image: String,
         isAvailable: Boolean,
-        prepMinutes: Int
+        prepMinutes: Int,
+        stockQuantity: Int = 0
     ) {
         viewModelScope.launch {
             val editId = _editingProductId.value
@@ -327,7 +362,8 @@ class StoreViewModel(application: Application) : AndroidViewModel(application) {
                     categoryId = categoryId,
                     image = image,
                     isAvailable = isAvailable,
-                    preparationTimeMinutes = prepMinutes
+                    preparationTimeMinutes = prepMinutes,
+                    stockQuantity = stockQuantity
                 )
                 repository.createProduct(req).onSuccess {
                     showMessage(if (_isArabic.value) "تمت إضافة المنتج بنجاح" else "Product created successfully")
