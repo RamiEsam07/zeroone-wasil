@@ -43,6 +43,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class StoreRepository(
     private val context: Context,
@@ -202,7 +204,7 @@ class StoreRepository(
 
         val productRows = rows("rest/v1/products?select=*&store_id=eq.$storeId&order=created_at.desc")
         val productEntities = (0 until productRows.length()).map { i ->
-            productRows.getJSONObject(i).toProductEntity(storeId, categoryEntities, System.currentTimeMillis() - i)
+            productRows.getJSONObject(i).let { row -> row.toProductEntity(storeId, categoryEntities, row.timestampMillis("created_at", fallback = System.currentTimeMillis() - i)) }
         }
         if (productEntities.isNotEmpty()) database.productDao().insertProducts(productEntities)
 
@@ -226,11 +228,11 @@ class StoreRepository(
                 total = row.optDouble("total"),
                 notes = row.optString("customer_notes"),
                 paymentMethod = "CASH_ON_DELIVERY",
-                paymentStatus = row.optString("payment_status").uppercase(),
+                paymentStatus = row.optString("payment_status").toMerchantPaymentStatus(),
                 driverId = row.optString("driver_id").takeIf { it.isNotBlank() && it != "null" },
                 driverName = null,
                 driverPhone = null,
-                createdAt = System.currentTimeMillis() - i,
+                createdAt = row.timestampMillis("placed_at", "created_at", fallback = System.currentTimeMillis() - i),
                 estimatedReadyTimeMinutes = 20,
             )
         }
@@ -308,7 +310,35 @@ class StoreRepository(
         longitude = if (isNull("longitude")) null else optDouble("longitude"),
     )
 
-    private fun String.toMerchantOrderStatus(reason: String = ""): String = when (this) {
+    private fun JSONObject.timestampMillis(vararg keys: String, fallback: Long): Long {
+    val raw = keys.firstNotNullOfOrNull { key ->
+        optString(key).takeIf { it.isNotBlank() && it != "null" }
+    } ?: return fallback
+    val patterns = listOf(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSX",
+        "yyyy-MM-dd'T'HH:mm:ssX",
+        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        "yyyy-MM-dd'T'HH:mm:ssXXX",
+    )
+    for (pattern in patterns) {
+        try {
+            return SimpleDateFormat(pattern, Locale.US).apply { isLenient = false }.parse(raw)?.time
+                ?: continue
+        } catch (_: Exception) {
+            // Try the next ISO-8601 timestamp shape.
+        }
+    }
+    return fallback
+}
+
+private fun String.toMerchantPaymentStatus(): String = when (lowercase()) {
+    "paid" -> PaymentStatus.PAID.name
+    "refunded" -> PaymentStatus.REFUNDED.name
+    // Unknown or pending server values must never be interpreted as a successful charge.
+    else -> PaymentStatus.PENDING_CASH.name
+}
+
+private fun String.toMerchantOrderStatus(reason: String = ""): String = when (this) {
         "confirmed" -> "ACCEPTED"
         "preparing" -> "PREPARING"
         "ready_for_pickup", "driver_assigned", "picked_up", "on_the_way" -> "READY"
@@ -685,8 +715,8 @@ class StoreRepository(
             tax = tax,
             total = total,
             notes = "Please confirm fast! Hungry customer waiting.",
-            paymentMethod = PaymentMethod.CREDIT_CARD.name,
-            paymentStatus = PaymentStatus.PAID.name,
+            paymentMethod = PaymentMethod.CASH_ON_DELIVERY.name,
+            paymentStatus = PaymentStatus.PENDING_CASH.name,
             driverId = null,
             driverName = null,
             driverPhone = null,
@@ -832,8 +862,8 @@ private fun OrderEntity.toDomain(items: List<OrderItem>): Order = Order(
     total = total,
     items = items,
     notes = notes,
-    paymentMethod = try { PaymentMethod.valueOf(paymentMethod) } catch (_: Exception) { PaymentMethod.CREDIT_CARD },
-    paymentStatus = try { PaymentStatus.valueOf(paymentStatus) } catch (_: Exception) { PaymentStatus.PAID },
+    paymentMethod = try { PaymentMethod.valueOf(paymentMethod) } catch (_: Exception) { PaymentMethod.CASH_ON_DELIVERY },
+    paymentStatus = try { PaymentStatus.valueOf(paymentStatus) } catch (_: Exception) { PaymentStatus.PENDING_CASH },
     driverId = driverId,
     driverName = driverName,
     driverPhone = driverPhone,
