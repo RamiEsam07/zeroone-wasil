@@ -372,7 +372,7 @@ fun OrderDetailsScreen(
                                         )
                                     }
                                     Text(
-                                        text = "$${String.format(Locale.US, "%.2f", item.unitPrice)} each",
+                                        text = "SDG ${String.format(Locale.US, "%.2f", item.unitPrice)} each",
                                         fontSize = 11.sp,
                                         color = Slate500
                                     )
@@ -380,7 +380,7 @@ fun OrderDetailsScreen(
                             }
 
                             Text(
-                                text = "$${String.format(Locale.US, "%.2f", item.totalPrice)}",
+                                text = "SDG ${String.format(Locale.US, "%.2f", item.totalPrice)}",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = Slate900
@@ -402,7 +402,7 @@ fun OrderDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(if (isArabic) "المجموع الفرعي" else "Subtotal", fontSize = 13.sp, color = Slate500)
-                        Text("$${String.format(Locale.US, "%.2f", order.subtotal)}", fontSize = 13.sp, color = Slate700)
+                        Text("SDG ${String.format(Locale.US, "%.2f", order.subtotal)}", fontSize = 13.sp, color = Slate700)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -412,7 +412,29 @@ fun OrderDetailsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(if (isArabic) "رسوم التوصيل" else "Delivery Fee", fontSize = 13.sp, color = Slate500)
-                        Text("$${String.format(Locale.US, "%.2f", order.deliveryFee)}", fontSize = 13.sp, color = Slate700)
+                        Text("SDG ${String.format(Locale.US, "%.2f", order.deliveryFee)}", fontSize = 13.sp, color = Slate700)
+                    }
+
+                    if (order.serviceFee > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(if (isArabic) "رسوم الخدمة" else "Service Fee", fontSize = 13.sp, color = Slate500)
+                            Text("SDG ${String.format(Locale.US, "%.2f", order.serviceFee)}", fontSize = 13.sp, color = Slate700)
+                        }
+                    }
+
+                    if (order.platformCommissionAmount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(if (isArabic) "عمولة المنصة على المتجر" else "Platform Commission", fontSize = 13.sp, color = Slate500)
+                            Text("SDG ${String.format(Locale.US, "%.2f", order.platformCommissionAmount)}", fontSize = 13.sp, color = Slate700)
+                        }
                     }
 
                     if (order.tax > 0) {
@@ -422,7 +444,7 @@ fun OrderDetailsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(if (isArabic) "الضريبة المقدرة" else "Estimated Tax", fontSize = 13.sp, color = Slate500)
-                            Text("$${String.format(Locale.US, "%.2f", order.tax)}", fontSize = 13.sp, color = Slate700)
+                            Text("SDG ${String.format(Locale.US, "%.2f", order.tax)}", fontSize = 13.sp, color = Slate700)
                         }
                     }
 
@@ -450,7 +472,7 @@ fun OrderDetailsScreen(
                         }
 
                         Text(
-                            text = "$${String.format(Locale.US, "%.2f", order.total)}",
+                            text = "SDG ${String.format(Locale.US, "%.2f", order.total)}",
                             fontSize = 19.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = MerchantBlue

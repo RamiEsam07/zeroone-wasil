@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
         OrderEntity::class,
         OrderItemEntity::class
     ],
-    version = 1,
+    version = 4,
     exportSchema = false
 )
 abstract class StoreDatabase : RoomDatabase() {
@@ -30,6 +31,26 @@ abstract class StoreDatabase : RoomDatabase() {
     abstract fun orderItemDao(): OrderItemDao
 
     companion object {
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE products ADD COLUMN stockQuantity INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE stores ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE stores ADD COLUMN longitude REAL")
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE orders ADD COLUMN serviceFee REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE orders ADD COLUMN platformCommissionAmount REAL NOT NULL DEFAULT 0.0")
+            }
+        }
+
         @Volatile
         private var INSTANCE: StoreDatabase? = null
 
@@ -40,6 +61,7 @@ abstract class StoreDatabase : RoomDatabase() {
                     StoreDatabase::class.java,
                     "store_operations_portal.db"
                 )
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

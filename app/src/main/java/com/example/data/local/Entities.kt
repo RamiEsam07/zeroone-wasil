@@ -1,6 +1,7 @@
 package com.example.data.local
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -35,7 +36,9 @@ data class StoreEntity(
     val rating: Double,
     val totalOrdersCount: Int,
     val autoAcceptOrders: Boolean,
-    val soundAlertsEnabled: Boolean
+    val soundAlertsEnabled: Boolean,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 @Entity(
@@ -65,7 +68,8 @@ data class ProductEntity(
     val image: String,
     val isAvailable: Boolean,
     val preparationTimeMinutes: Int,
-    val createdAt: Long
+    val createdAt: Long,
+    @ColumnInfo(defaultValue = "0") val stockQuantity: Int = 0
 )
 
 @Entity(
@@ -92,7 +96,9 @@ data class OrderEntity(
     val driverName: String?,
     val driverPhone: String?,
     val createdAt: Long,
-    val estimatedReadyTimeMinutes: Int
+    val estimatedReadyTimeMinutes: Int,
+    @ColumnInfo(defaultValue = "0.0") val serviceFee: Double = 0.0,
+    @ColumnInfo(defaultValue = "0.0") val platformCommissionAmount: Double = 0.0
 )
 
 @Entity(
