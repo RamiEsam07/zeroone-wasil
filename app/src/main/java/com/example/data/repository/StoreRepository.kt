@@ -232,8 +232,6 @@ class StoreRepository(
                 driverPhone = null,
                 createdAt = System.currentTimeMillis() - i,
                 estimatedReadyTimeMinutes = 20,
-                serviceFee = row.optDouble("service_fee", 0.0),
-                platformCommissionAmount = row.optDouble("platform_commission_amount", 0.0),
             )
         }
         if (orderEntities.isNotEmpty()) database.orderDao().insertOrders(orderEntities)
